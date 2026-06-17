@@ -1,0 +1,36 @@
+name: Maj quotidienne du pool
+
+on:
+  schedule:
+    - cron: "0 12 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Recuperer le depot
+        uses: actions/checkout@v4
+
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Mettre a jour les resultats
+        run: python scripts/update.py
+
+      - name: Publier si changement
+        run: |
+          git config user.name "Pool Refrigaz Bot"
+          git config user.email "actions@github.com"
+          if [ -n "$(git status --porcelain)" ]; then
+            git add index.html
+            git commit -m "Maj auto des resultats"
+            git push
+          else
+            echo "Aucun changement."
+          fi
