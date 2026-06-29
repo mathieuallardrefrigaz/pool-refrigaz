@@ -15,21 +15,21 @@ HTML = os.path.join(os.path.dirname(__file__), "..", "index.html")
 
 # --- équipes : alias (flux, en anglais) -> nom FR utilisé dans le site ---
 FR = {
- "mexico":"Mexique","south africa":"Afrique du Sud","korea republic":"Corée du Sud",
- "south korea":"Corée du Sud","czechia":"Tchéquie","czech republic":"Tchéquie",
- "canada":"Canada","bosnia and herzegovina":"Bosnie-Herzégovine","bosnia & herzegovina":"Bosnie-Herzégovine",
- "bosnia":"Bosnie-Herzégovine","qatar":"Qatar","switzerland":"Suisse","brazil":"Brésil",
- "morocco":"Maroc","haiti":"Haïti","scotland":"Écosse","united states":"États-Unis","usa":"États-Unis",
- "paraguay":"Paraguay","australia":"Australie","turkey":"Turquie","turkiye":"Turquie","türkiye":"Turquie",
- "germany":"Allemagne","curacao":"Curaçao","ivory coast":"Côte d'Ivoire","cote d'ivoire":"Côte d'Ivoire",
- "ecuador":"Équateur","netherlands":"Pays-Bas","japan":"Japon","sweden":"Suède","tunisia":"Tunisie",
- "belgium":"Belgique","egypt":"Égypte","iran":"Iran","ir iran":"Iran","new zealand":"Nouvelle-Zélande",
- "spain":"Espagne","cape verde":"Cap-Vert","cabo verde":"Cap-Vert","saudi arabia":"Arabie saoudite",
- "uruguay":"Uruguay","france":"France","senegal":"Sénégal","iraq":"Irak","norway":"Norvège",
- "argentina":"Argentine","algeria":"Algérie","austria":"Autriche","jordan":"Jordanie","portugal":"Portugal",
- "dr congo":"RD Congo","congo dr":"RD Congo","democratic republic of the congo":"RD Congo","drc":"RD Congo",
- "uzbekistan":"Ouzbékistan","colombia":"Colombie","england":"Angleterre","croatia":"Croatie",
- "ghana":"Ghana","panama":"Panama",
+"mexico":"Mexique","south africa":"Afrique du Sud","korea republic":"Corée du Sud",
+"south korea":"Corée du Sud","czechia":"Tchéquie","czech republic":"Tchéquie",
+"canada":"Canada","bosnia and herzegovina":"Bosnie-Herzégovine","bosnia & herzegovina":"Bosnie-Herzégovine",
+"bosnia":"Bosnie-Herzégovine","qatar":"Qatar","switzerland":"Suisse","brazil":"Brésil",
+"morocco":"Maroc","haiti":"Haïti","scotland":"Écosse","united states":"États-Unis","usa":"États-Unis",
+"paraguay":"Paraguay","australia":"Australie","turkey":"Turquie","turkiye":"Turquie","türkiye":"Turquie",
+"germany":"Allemagne","curacao":"Curaçao","ivory coast":"Côte d'Ivoire","cote d'ivoire":"Côte d'Ivoire",
+"ecuador":"Équateur","netherlands":"Pays-Bas","japan":"Japon","sweden":"Suède","tunisia":"Tunisie",
+"belgium":"Belgique","egypt":"Égypte","iran":"Iran","ir iran":"Iran","new zealand":"Nouvelle-Zélande",
+"spain":"Espagne","cape verde":"Cap-Vert","cabo verde":"Cap-Vert","saudi arabia":"Arabie saoudite",
+"uruguay":"Uruguay","france":"France","senegal":"Sénégal","iraq":"Irak","norway":"Norvège",
+"argentina":"Argentine","algeria":"Algérie","austria":"Autriche","jordan":"Jordanie","portugal":"Portugal",
+"dr congo":"RD Congo","congo dr":"RD Congo","democratic republic of the congo":"RD Congo","drc":"RD Congo",
+"uzbekistan":"Ouzbékistan","colombia":"Colombie","england":"Angleterre","croatia":"Croatie",
+"ghana":"Ghana","panama":"Panama",
 }
 def norm(s):
     s = unicodedata.normalize("NFKD", s or "").encode("ascii","ignore").decode().lower().strip()
@@ -39,14 +39,21 @@ def fr(team):
 
 MONTHS = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"]
 
+# KO : le flux fixturedownload n'a pas de champ Group pour les rondes éliminatoires ;
+# il fournit un entier RoundNumber. Mapping validé sur le flux 2026 (16/8/4/2/2 matchs).
+ROUND_BY_NUMBER = {4: "R32", 5: "R16", 6: "QF", 7: "SF", 8: "F"}
+
 def round_of(group_field):
+    # Matchs KO : group_field est un entier (RoundNumber)
+    if isinstance(group_field, int):
+        return ROUND_BY_NUMBER.get(group_field)  # None si inconnu -> ignoré
     g = (str(group_field) if group_field is not None else "").strip().lower()
     if g.startswith("group"): return "group"
     if "round of 32" in g or "r32" in g: return "R32"
     if "round of 16" in g or "r16" in g: return "R16"
     if "quarter" in g: return "QF"
     if "semi" in g: return "SF"
-    if "third" in g or "bronze" in g or "play-off" in g: return None  # match pour la 3e place : hors pointage
+    if "third" in g or "bronze" in g or "play-off" in g: return None  # 3e place : hors pointage
     if "final" in g: return "F"
     return None  # inconnu -> on ignore par prudence
 
@@ -63,7 +70,7 @@ def build_matches(data):
             continue  # match pas encore joué
         a, b = fr(m.get("HomeTeam","")), fr(m.get("AwayTeam",""))
         if not a or not b:
-            print("⚠️  équipe non reconnue:", m.get("HomeTeam"), "/", m.get("AwayTeam"), file=sys.stderr)
+            print("⚠️ équipe non reconnue:", m.get("HomeTeam"), "/", m.get("AwayTeam"), file=sys.stderr)
             continue
         rnd = round_of(m.get("Group") or m.get("RoundNumber"))
         if rnd is None:
@@ -91,7 +98,7 @@ def main():
         open(HTML,"w",encoding="utf-8").write(new)
         print(f"✅ index.html mis à jour — {n} matchs joués, daté du {datestr}.")
     else:
-        print(f"ℹ️  Aucun changement ({n} matchs joués).")
+        print(f"ℹ️ Aucun changement ({n} matchs joués).")
 
 if __name__ == "__main__":
     main()
