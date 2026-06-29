@@ -40,7 +40,7 @@ def fr(team):
 MONTHS = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"]
 
 def round_of(group_field):
-    g = (group_field or "").lower()
+    g = (str(group_field) if group_field is not None else "").strip().lower()
     if g.startswith("group"): return "group"
     if "round of 32" in g or "r32" in g: return "R32"
     if "round of 16" in g or "r16" in g: return "R16"
