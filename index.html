@@ -519,24 +519,24 @@ const FL=t=>FLAGS[t]||"🏳️";
 // points de base d'une équipe (avant cote) à une date donnée (incluse)
 function teamBaseUpTo(team, dateMax){
   let p=0;
-  for(const [d,a,sa,b,sb,r] of MATCHES){
+  for(const [d,a,sa,b,sb,r,w] of MATCHES){
     if(dateMax && d>dateMax) continue;
     if(a!==team && b!==team) continue;
     if(r==="group"){
       if(sa===sb) p+=0.5;
       else if((a===team&&sa>sb)||(b===team&&sb>sa)) p+=1;
     } else {
-      if((a===team&&sa>sb)||(b===team&&sb>sa)) p+=ROUNDPTS[r];
+      {const _w=w||(sa>sb?a:(sb>sa?b:null)); if(_w===team) p+=ROUNDPTS[r];}
     }
   }
   return p;
 }
 function teamResultOn(team){ // statut cumulatif: won/drew/lost/pending
   let played=0,best="pending";
-  for(const [d,a,sa,b,sb,r] of MATCHES){
+  for(const [d,a,sa,b,sb,r,w] of MATCHES){
     if(a!==team&&b!==team) continue; played++;
-    const win=(a===team&&sa>sb)||(b===team&&sb>sa);
-    const draw=sa===sb;
+    const win=w?(w===team):((a===team&&sa>sb)||(b===team&&sb>sa));
+    const draw=(sa===sb)&&!w;
     if(win) best="won"; else if(draw && best!=="won") best="drew"; else if(best!=="won"&&best!=="drew") best="lost";
   }
   return played? best : "pending";
@@ -724,12 +724,12 @@ function days(){
   const ordered=[...allDates].reverse(); // plus récent en haut
   el.innerHTML=ordered.map((date,i)=>{
     const c=comicFor(date,allDates.indexOf(date));
-    const ms=dayMatches(date).map(([d,a,sa,b,sb,r])=>{
-      const wa=sa>sb,wb=sb>sa;
+    const ms=dayMatches(date).map(([d,a,sa,b,sb,r,w])=>{
+      const wa=w?(w===a):(sa>sb),wb=w?(w===b):(sb>sa);
       const pkA=pickersOf(a),pkB=pickersOf(b);
       return `<div class="mtch">
         <div class="side l"><span>${FL(a)}</span><span style="${wa?'font-weight:600':''}">${a}</span>${pkA.length?`<span class="pickby">${pkA.join(",")}</span>`:""}</div>
-        <span class="sc">${sa} – ${sb}</span>
+        <span class="sc">${sa} – ${sb}${(w&&sa===sb)?' <small style="opacity:.7">t.a.b.</small>':''}</span>
         <div class="side rr" style="justify-content:flex-end;text-align:right">${pkB.length?`<span class="pickby">${pkB.join(",")}</span>`:""}<span style="${wb?'font-weight:600':''}">${b}</span><span>${FL(b)}</span></div>
       </div>`;
     }).join("");
