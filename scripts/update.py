@@ -82,6 +82,9 @@ def fetch():
 
 def build_matches(data):
     rows = []
+    # RN8 contient la finale ET le match pour la 3e place. La vraie finale est le
+    # dernier match du tournoi (plus grand MatchNumber) ; l'autre est hors pointage.
+    final_mn = max((m.get("MatchNumber", 0) for m in data if m.get("RoundNumber") == 8), default=None)
     for m in data:
         ha, aa = m.get("HomeTeamScore"), m.get("AwayTeamScore")
         if ha is None or aa is None:
@@ -92,6 +95,9 @@ def build_matches(data):
             continue
         rnd = round_of(m.get("Group") or m.get("RoundNumber"))
         if rnd is None:
+            continue
+        # Exclut le match pour la 3e place (RN8 qui n'est pas la finale).
+        if m.get("RoundNumber") == 8 and final_mn is not None and m.get("MatchNumber") != final_mn:
             continue
         try:
             dt = datetime.datetime.fromisoformat(m["DateUtc"].replace("Z","+00:00"))
