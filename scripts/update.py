@@ -43,6 +43,14 @@ MONTHS = ["janvier","février","mars","avril","mai","juin","juillet","août","se
 # il fournit un entier RoundNumber. Mapping validé sur le flux 2026 (16/8/4/2/2 matchs).
 ROUND_BY_NUMBER = {4: "R32", 5: "R16", 6: "QF", 7: "SF", 8: "F"}
 
+# Vainqueurs aux tirs de but : le flux ne donne que le score réglementaire (ex. 1-1).
+# Clé : (date_Est "AAAA-MM-JJ", ÉquipeA_FR, ÉquipeB_FR) -> vainqueur_FR.
+# À COMPLÉTER à chaque match nul en ronde éliminatoire (sinon les points ne sont pas attribués).
+PENALTY_WINNERS = {
+    ("2026-06-29", "Allemagne", "Paraguay"): "Paraguay",
+    ("2026-06-29", "Pays-Bas", "Maroc"): "Maroc",
+}
+
 def round_of(group_field):
     # Matchs KO : group_field est un entier (RoundNumber)
     if isinstance(group_field, int):
@@ -56,6 +64,16 @@ def round_of(group_field):
     if "third" in g or "bronze" in g or "play-off" in g: return None  # 3e place : hors pointage
     if "final" in g: return "F"
     return None  # inconnu -> on ignore par prudence
+
+def winner_of(et, a, ha, b, ab, rnd):
+    # Renvoie le vainqueur FR pour une ronde KO, sinon None (matchs de groupe : pas de vainqueur unique).
+    if rnd == "group":
+        return None
+    if ha > ab:
+        return a
+    if ab > ha:
+        return b
+    return PENALTY_WINNERS.get((et, a, b))  # nul -> décidé aux tirs de but
 
 def fetch():
     req = urllib.request.Request(FEED, headers={"User-Agent":"pool-refrigaz/1.0"})
@@ -80,9 +98,15 @@ def build_matches(data):
         except Exception:
             continue
         et = (dt - datetime.timedelta(hours=4)).strftime("%Y-%m-%d")  # UTC -> heure de l'Est
-        rows.append((et, m.get("DateUtc"), a, int(ha), b, int(aa), rnd))
+        w = winner_of(et, a, int(ha), b, int(aa), rnd)
+        rows.append((et, m.get("DateUtc"), a, int(ha), b, int(aa), rnd, w))
     rows.sort(key=lambda x: x[1])  # tri chronologique
-    lines = [f' ["{et}","{a}",{ha},"{b}",{ab},"{rnd}"],' for (et,_,a,ha,b,ab,rnd) in rows]
+    def fmt_row(et, a, ha, b, ab, rnd, w):
+        # 7e champ "vainqueur" ajouté seulement en ronde KO quand il est connu.
+        if w is None:
+            return f' ["{et}","{a}",{ha},"{b}",{ab},"{rnd}"],'
+        return f' ["{et}","{a}",{ha},"{b}",{ab},"{rnd}","{w}"],'
+    lines = [fmt_row(et, a, ha, b, ab, rnd, w) for (et, _, a, ha, b, ab, rnd, w) in rows]
     return "const MATCHES = [\n" + "\n".join(lines) + "\n];", len(rows)
 
 def main():
