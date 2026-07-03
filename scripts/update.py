@@ -115,11 +115,41 @@ def build_matches(data):
     lines = [fmt_row(et, a, ha, b, ab, rnd, w) for (et, _, a, ha, b, ab, rnd, w) in rows]
     return "const MATCHES = [\n" + "\n".join(lines) + "\n];", len(rows)
 
+def build_upcoming(data):
+    # Calendrier des matchs a venir, regenere depuis le flux (couvre les rondes eliminatoires).
+    labels = {"R32": "16es de finale", "R16": "8es de finale", "QF": "Quart de finale", "SF": "Demi-finale", "F": "Finale"}
+    final_mn = max((m.get("MatchNumber", 0) for m in data if m.get("RoundNumber") == 8), default=None)
+    rows = []
+    for m in data:
+        if m.get("HomeTeamScore") is not None and m.get("AwayTeamScore") is not None:
+            continue  # deja joue
+        a, b = fr(m.get("HomeTeam", "")), fr(m.get("AwayTeam", ""))
+        if not a or not b:
+            continue  # equipes pas encore determinees (ex. vainqueur a venir)
+        rnd = round_of(m.get("Group") or m.get("RoundNumber"))
+        if rnd == "group":
+            g = str(m.get("Group") or "").strip()
+            lbl = "Groupe " + g.split()[-1] if g else "Groupe"
+        elif m.get("RoundNumber") == 8 and final_mn is not None and m.get("MatchNumber") != final_mn:
+            lbl = "Match pour la 3e place"
+        else:
+            lbl = labels.get(rnd, "")
+        try:
+            dt = datetime.datetime.fromisoformat(m["DateUtc"].replace("Z", "+00:00"))
+        except Exception:
+            continue
+        et = dt - datetime.timedelta(hours=4)  # UTC -> heure de l'Est (EDT)
+        rows.append((et.strftime("%Y-%m-%d"), et.strftime("%H:%M"), a, b, lbl))
+    rows.sort()
+    lines = [f' ["{d}","{h}","{a}","{b}","{l}"],' for (d, h, a, b, l) in rows]
+    return "const MATCHS_AVENIR = [\n" + "\n".join(lines) + "\n];"
+
 def main():
     data = fetch()
     block, n = build_matches(data)
     html = open(HTML, encoding="utf-8").read()
     new = re.sub(r"const MATCHES = \[.*?\];", lambda _: block, html, count=1, flags=re.S)
+    new = re.sub(r"const MATCHS_AVENIR = \[.*?\];", lambda _: build_upcoming(data), new, count=1, flags=re.S)
     today = datetime.date.today()
     datestr = f"{today.day} {MONTHS[today.month-1]} {today.year}"
     new = re.sub(r'(<b id="m-updated">)[^<]*(</b>)', r'\g<1>'+datestr+r'\g<2>', new)
